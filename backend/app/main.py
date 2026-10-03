@@ -22,6 +22,16 @@ app.include_router(interactions.router)
 app.include_router(chat.router)
 
 
+@app.get("/")
+def root():
+    return {
+        "message": "AI-First CRM HCP Log Interactions API is live!",
+        "status": "healthy",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
