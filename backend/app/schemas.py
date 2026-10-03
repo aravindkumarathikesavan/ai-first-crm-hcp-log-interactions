@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class InteractionBase(BaseModel):
-    hcp_id: str
+    hcp_id: Optional[str] = "unknown-hcp"
     hcp_name: str
     rep_name: Optional[str] = "Field Rep"
     interaction_type: Optional[str] = "Visit"

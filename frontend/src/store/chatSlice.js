@@ -4,26 +4,34 @@ import { upsertInteractionLocal, fetchInteractions } from "./interactionsSlice";
 
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async (payload, { dispatch }) => {
-    const res = await api.sendChatMessage(payload);
-    const data = res.data;
+  async (payload, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await api.sendChatMessage(payload);
+      const data = res.data;
 
-    if (data.interaction) {
-      const isLog = data.tool_calls?.includes("log_interaction");
-      if (isLog) {
-        // The interaction was persisted to the DB by the agent.
-        // Add it to local state immediately so it appears in the history panel
-        // without waiting for a full re-fetch.
-        dispatch(upsertInteractionLocal(data.interaction));
-        // Also do a full server re-fetch so the list is always in sync
-        // (covers cases where the hcp_id changed via AI extraction).
-        dispatch(fetchInteractions(null));
-      } else {
-        // For edit / other tool calls, update the local entry.
-        dispatch(upsertInteractionLocal(data.interaction));
+      if (data.interaction) {
+        const isLog = data.tool_calls?.includes("log_interaction");
+        if (isLog) {
+          // The interaction was persisted to the DB by the agent.
+          // Add it to local state immediately so it appears in the history panel
+          // without waiting for a full re-fetch.
+          dispatch(upsertInteractionLocal(data.interaction));
+          // Also do a full server re-fetch so the list is always in sync
+          // (covers cases where the hcp_id changed via AI extraction).
+          dispatch(fetchInteractions(null));
+        } else {
+          // For edit / other tool calls, update the local entry.
+          dispatch(upsertInteractionLocal(data.interaction));
+        }
       }
+      return data;
+    } catch (err) {
+      console.error("Chat API error:", err);
+      const serverMsg = err?.response?.data?.reply || err?.response?.data?.detail;
+      return rejectWithValue(
+        serverMsg || err?.message || "Sorry, something went wrong reaching the AI agent."
+      );
     }
-    return data;
   }
 );
 
@@ -52,11 +60,14 @@ const chatSlice = createSlice({
           toolCalls: action.payload.tool_calls,
         });
       })
-      .addCase(sendMessage.rejected, (state) => {
+      .addCase(sendMessage.rejected, (state, action) => {
         state.status = "failed";
         state.messages.push({
           role: "agent",
-          text: "Sorry, something went wrong reaching the AI agent.",
+          text:
+            action.payload ||
+            action.error?.message ||
+            "Sorry, something went wrong reaching the AI agent.",
         });
       });
   },

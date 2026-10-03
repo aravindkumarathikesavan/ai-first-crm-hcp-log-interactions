@@ -48,18 +48,20 @@ def chat(
                 # can populate the form correctly.
                 interaction_out = None
 
+        reply_text = state.get("reply") or "I processed your request."
         return schemas.ChatMessageOut(
             session_id=payload.session_id,
-            reply=state.get("reply", ""),
-            tool_calls=state.get("tool_calls", []),
+            reply=reply_text,
+            tool_calls=state.get("tool_calls") or [],
             interaction=interaction_out,
             extracted=extracted,
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         error_msg = str(e)
         user_friendly_msg = (
-            "⚠️ AI Agent Error: Something went wrong when connecting to the AI agent. "
-            "This is usually caused by an invalid or missing Groq API Key, or a rate limit issue. "
+            f"⚠️ AI Agent Error: {error_msg}. "
             "Please check/update your Groq API Key in the settings (gear icon) at the top of the chat."
         )
         if "invalid_api_key" in error_msg or "authentication" in error_msg.lower() or "401" in error_msg or "apikey" in error_msg.lower() or "api key" in error_msg.lower() or "missing or not configured" in error_msg:
