@@ -14,19 +14,8 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Dynamic interceptor to inject X-Groq-API-Key header if set in localStorage
-api.interceptors.request.use(
-  (config) => {
-    const customKey = localStorage.getItem("groq_api_key");
-    if (customKey) {
-      config.headers["X-Groq-API-Key"] = customKey.trim();
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+// Clear any previously stored custom key — API key is now permanent in the backend.
+localStorage.removeItem("groq_api_key");
 
 export const createInteraction = (payload) => api.post("/api/interactions", payload);
 export const listInteractions = (hcpId) =>

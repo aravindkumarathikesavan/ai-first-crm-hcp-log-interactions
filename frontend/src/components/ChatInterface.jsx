@@ -14,34 +14,61 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
   const [text, setText] = useState("");
   const endRef = useRef(null);
   const textareaRef = useRef(null);
+  const cardRef = useRef(null);
+  const messagesRef = useRef(null);
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem("groq_api_key") || "");
-
-  const hasApiKey = !!localStorage.getItem("groq_api_key");
-
+  // Smoothly scroll chat messages container internally without moving the outer page
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesRef.current) {
+      messagesRef.current.scrollTo({
+        top: messagesRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages, status]);
+
+  // Scroll chat messages first; once scroll is complete in chat, scroll the page
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+
+    const handleWheel = (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const maxScroll = scrollHeight - clientHeight;
+      if (maxScroll <= 0) return; // No chat overflow: let page scroll normally
+
+      const deltaY = e.deltaY;
+
+      if (deltaY > 0) {
+        // Scrolling DOWN
+        if (scrollTop < maxScroll - 1) {
+          // Chat has more content to scroll: scroll chat and prevent page scroll
+          el.scrollTop = Math.min(maxScroll, scrollTop + deltaY);
+          e.preventDefault();
+        }
+        // Once scroll is complete at bottom: do NOT preventDefault -> next scroll page!
+      } else if (deltaY < 0) {
+        // Scrolling UP
+        if (scrollTop > 1) {
+          // Chat has more content to scroll: scroll chat and prevent page scroll
+          el.scrollTop = Math.max(0, scrollTop + deltaY);
+          e.preventDefault();
+        }
+        // Once scroll is complete at top: do NOT preventDefault -> next scroll page!
+      }
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      const newHeight = Math.min(textareaRef.current.scrollHeight, 80);
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 100);
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [text]);
-
-  const saveApiKey = (key) => {
-    const trimmed = key.trim();
-    if (trimmed) {
-      localStorage.setItem("groq_api_key", trimmed);
-    } else {
-      localStorage.removeItem("groq_api_key");
-    }
-    setApiKeyInput(trimmed);
-    setShowSettings(false);
-  };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -64,10 +91,6 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
       })
     ).then((res) => {
       if (res.payload) {
-        // ── Step 1: build & hand off the extracted form data FIRST ──────────
-        // This must happen before onHcpExtracted so that LogInteractionScreen
-        // can store the data in pendingExtractRef before the hcp-change
-        // useEffect fires and resets the form.
         if (res.payload.tool_calls?.includes("log_interaction")) {
           const rawExt = res.payload.extracted || {};
           const extractedKeys = [];
@@ -82,8 +105,6 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
           const minutes = String(today.getMinutes()).padStart(2, "0");
           const defaultTimeStr = `${hours}:${minutes}`;
 
-          // Guard against the LLM returning descriptive text instead of a date.
-          // Only accept strict YYYY-MM-DD strings; anything else becomes empty/default.
           const sanitizeDate = (val) =>
             val && /^\d{4}-\d{2}-\d{2}$/.test(String(val).trim()) ? String(val).trim() : null;
           const sanitizeTime = (val) =>
@@ -124,11 +145,6 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
           }
         }
 
-        // ── Step 2: notify parent of discovered HCP AFTER onExtract ─────────
-        // onHcpExtracted changes the `hcp` prop which re-triggers the useEffect
-        // in LogInteractionScreen. By calling it here (after onExtract has
-        // already stored data in pendingExtractRef), the useEffect will apply
-        // the AI data rather than resetting to blank defaults.
         const item = res.payload.interaction;
         if (item && item.hcp_id && item.hcp_id !== "unknown-hcp" && onHcpExtracted) {
           onHcpExtracted(item.hcp_id);
@@ -139,66 +155,35 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
   };
 
   return (
-    <div style={styles.card}>
-      <div style={styles.chatHeader}>
-        <div style={styles.chatHeaderTitle}>🤖 LangGraph AI Agent</div>
-        <button
-          style={{
-            ...styles.settingsToggleBtn,
-            background: hasApiKey ? "var(--color-primary-tint)" : "var(--color-border)",
-            color: hasApiKey ? "var(--color-primary-dark)" : "var(--color-ink-muted)",
-          }}
-          onClick={() => setShowSettings(!showSettings)}
-          title="Configure API Settings"
-        >
-          ⚙️ {hasApiKey ? "Custom Key Configured" : "Set API Key"}
-        </button>
+    <div className="chat-card" ref={cardRef}>
+      {/* Header */}
+      <div className="chat-header">
+        <div style={styles.chatHeaderTitle}>
+          <span style={{ fontSize: 16 }}>🤖</span> LangGraph AI Agent
+        </div>
+        <div style={styles.aiStatusBadge}>
+          <span style={styles.aiStatusDot} />
+          AI Ready
+        </div>
       </div>
 
-      {showSettings && (
-        <div style={styles.settingsPanel}>
-          <div style={styles.settingsLabel}>Custom Groq API Key (stored locally in browser):</div>
-          <div style={styles.settingsRow}>
-            <input
-              type="password"
-              style={styles.settingsInput}
-              placeholder="gsk_..."
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-            />
-            <button style={styles.saveBtn} onClick={() => saveApiKey(apiKeyInput)}>
-              Save
-            </button>
-            <button style={styles.clearBtn} onClick={() => saveApiKey("")}>
-              Clear
-            </button>
-          </div>
-          <div style={styles.settingsHelp}>
-            No key? Get a free key at{" "}
-            <a
-              href="https://console.groq.com"
-              target="_blank"
-              rel="noreferrer"
-              style={styles.settingsLink}
-            >
-              console.groq.com
-            </a>
-          </div>
-        </div>
-      )}
-
-      <div style={styles.log}>
+      {/* Messages */}
+      <div className="chat-messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div style={styles.emptyState}>
-            <div style={styles.emptyTitle}>Tell me what happened with {hcp ? hcp.name : "Select Healthcare Professional"}</div>
+            <div style={styles.emptyIcon}>💡</div>
+            <div style={styles.emptyTitle}>
+              Tell me what happened with{" "}
+              {hcp ? <strong>{hcp.name}</strong> : "the Healthcare Professional"}
+            </div>
             <div style={styles.emptySub}>
-              The LangGraph agent will extract the interaction type, products,
-              sentiment, and next steps automatically.
+              Describe your meeting in plain English. The AI agent will extract the
+              interaction type, topics, products, sentiment, and schedule follow-ups.
             </div>
             <div style={styles.suggestions}>
               {SUGGESTIONS.map((s) => (
                 <button key={s} style={styles.suggestionChip} onClick={() => submit(s)}>
-                  {s}
+                  💬 "{s}"
                 </button>
               ))}
             </div>
@@ -213,11 +198,11 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
               justifyContent: m.role === "rep" ? "flex-end" : "flex-start",
             }}
           >
-            <div style={m.role === "rep" ? styles.bubbleRep : styles.bubbleAgent}>
+            <div className={m.role === "rep" ? "bubble-rep" : "bubble-agent"}>
               {m.text}
               {m.toolCalls?.length > 0 && (
                 <div style={styles.toolTag}>
-                  🔧 {m.toolCalls.join(", ")}
+                  ⚡ {m.toolCalls.join(", ")}
                 </div>
               )}
             </div>
@@ -226,23 +211,26 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
 
         {status === "loading" && (
           <div style={styles.bubbleRow}>
-            <div style={styles.bubbleAgent}>Thinking…</div>
+            <div className="bubble-agent" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span>Thinking & extracting…</span>
+            </div>
           </div>
         )}
         <div ref={endRef} />
       </div>
 
-      <div style={styles.inputRow}>
+      {/* Input */}
+      <div className="chat-input-row">
         <textarea
           ref={textareaRef}
           rows={1}
-          style={styles.textInput}
+          className="chat-textarea"
           placeholder="Describe the interaction, or ask a question…"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <button style={styles.sendBtn} onClick={() => submit()}>
+        <button className="chat-send-btn" onClick={() => submit()}>
           Send
         </button>
       </div>
@@ -251,155 +239,81 @@ export default function ChatInterface({ hcp, interactionId, onExtract, onHcpExtr
 }
 
 const styles = {
-  card: {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius-lg)",
-    boxShadow: "var(--shadow-card)",
-    display: "flex",
-    flexDirection: "column",
-    height: 520,
-  },
-  chatHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px 18px",
-    borderBottom: "1px solid var(--color-border)",
-    background: "var(--color-bg)",
-    borderTopLeftRadius: "var(--radius-lg)",
-    borderTopRightRadius: "var(--radius-lg)",
-  },
   chatHeaderTitle: {
-    fontWeight: 600,
-    fontSize: 14,
+    fontWeight: 700,
+    fontSize: 14.5,
     color: "var(--color-ink)",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
   },
-  settingsToggleBtn: {
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: "var(--radius-sm)",
+  aiStatusBadge: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
     fontSize: 12,
     fontWeight: 600,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-    transition: "background 0.2s, color 0.2s",
+    color: "var(--color-primary-dark)",
+    background: "var(--color-primary-tint)",
+    border: "1px solid var(--color-primary-border)",
+    borderRadius: 20,
+    padding: "4px 10px",
   },
-  settingsPanel: {
-    background: "var(--color-surface)",
-    borderBottom: "1px solid var(--color-border)",
-    padding: "14px 18px",
+  aiStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "var(--color-primary)",
+    boxShadow: "0 0 0 2px rgba(13,148,136,.2)",
+    animation: "pulse 2s infinite",
+  },
+  emptyState: {
+    margin: "auto",
+    textAlign: "center",
+    maxWidth: 420,
+    padding: "16px 0",
+  },
+  emptyIcon: { fontSize: 28, marginBottom: 8 },
+  emptyTitle: {
+    fontWeight: 700,
+    fontSize: 15,
+    marginBottom: 6,
+    color: "var(--color-ink)",
+    lineHeight: 1.4,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: "var(--color-ink-muted)",
+    marginBottom: 16,
+    lineHeight: 1.45,
+  },
+  suggestions: {
     display: "flex",
     flexDirection: "column",
     gap: 8,
   },
-  settingsLabel: {
-    fontSize: 12.5,
-    fontWeight: 500,
-    color: "var(--color-ink-muted)",
-  },
-  settingsRow: {
-    display: "flex",
-    gap: 8,
-  },
-  settingsInput: {
-    flex: 1,
-    padding: "8px 12px",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--color-border)",
-    fontSize: 13,
-  },
-  saveBtn: {
-    padding: "8px 16px",
-    borderRadius: "var(--radius-sm)",
-    border: "none",
-    background: "var(--color-primary)",
-    color: "#fff",
-    fontWeight: 600,
-    fontSize: 13,
-  },
-  clearBtn: {
-    padding: "8px 16px",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--color-border)",
-    background: "var(--color-surface)",
-    color: "var(--color-ink-muted)",
-    fontWeight: 600,
-    fontSize: 13,
-  },
-  settingsHelp: {
-    fontSize: 11.5,
-    color: "var(--color-ink-muted)",
-  },
-  settingsLink: {
-    color: "var(--color-primary)",
-    textDecoration: "underline",
-    fontWeight: 500,
-  },
-  log: { flex: 1, overflowY: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 10 },
-  emptyState: { margin: "auto", textAlign: "center", maxWidth: 380 },
-  emptyTitle: { fontWeight: 600, fontSize: 15, marginBottom: 6 },
-  emptySub: { fontSize: 13, color: "var(--color-ink-muted)", marginBottom: 16 },
-  suggestions: { display: "flex", flexDirection: "column", gap: 8 },
   suggestionChip: {
     textAlign: "left",
-    border: "1px solid var(--color-border)",
+    border: "1px solid var(--color-accent-border)",
     background: "var(--color-accent-tint)",
-    color: "var(--color-accent)",
-    padding: "9px 12px",
+    color: "var(--color-accent-dark)",
+    padding: "10px 14px",
     borderRadius: "var(--radius-md)",
     fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "background 0.2s, transform 0.1s",
+    lineHeight: 1.4,
   },
-  bubbleRow: { display: "flex" },
-  bubbleRep: {
-    background: "var(--color-primary)",
-    color: "#fff",
-    padding: "10px 14px",
-    borderRadius: "14px 14px 4px 14px",
-    maxWidth: "78%",
-    fontSize: 14,
-    lineHeight: 1.45,
-  },
-  bubbleAgent: {
-    background: "var(--color-accent-tint)",
-    color: "var(--color-ink)",
-    padding: "10px 14px",
-    borderRadius: "14px 14px 14px 4px",
-    maxWidth: "78%",
-    fontSize: 14,
-    lineHeight: 1.45,
-    whiteSpace: "pre-line",
+  bubbleRow: {
+    display: "flex",
+    width: "100%",
   },
   toolTag: {
     marginTop: 6,
     fontSize: 11,
     color: "var(--color-accent)",
-    fontWeight: 600,
+    fontWeight: 700,
     letterSpacing: 0.2,
-  },
-  inputRow: { display: "flex", gap: 8, padding: 14, borderTop: "1px solid var(--color-border)", alignItems: "flex-end", justifyContent: "center" },
-  textInput: {
-    flex: 1,
-    padding: "10px",
-    borderRadius: "var(--radius-md)",
-    border: "1px solid var(--color-border)",
-    fontSize: 14,
-    fontFamily: "inherit",
-    resize: "none",
-    height: "auto",
-    lineHeight: "1.4",
-    overflowY: "auto",
-  },
-  sendBtn: {
-    height: "40px",
-    width: "80px",
-    borderRadius: "var(--radius-md)",
-    border: "none",
-    background: "var(--color-primary)",
-    color: "#fff",
-    fontWeight: 600,
-    fontSize: 14,
   },
 };

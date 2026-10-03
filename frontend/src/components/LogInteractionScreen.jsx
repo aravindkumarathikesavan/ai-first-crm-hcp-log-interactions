@@ -45,22 +45,29 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
   const items = useSelector((s) => s.interactions.items);
 
   // Holds AI-extracted form data that must survive the hcp-change useEffect reset.
-  // When the agent identifies a new HCP from the chat, onHcpSelected is called,
-  // which changes the `hcp` prop and re-triggers this effect. Without this ref
-  // the extracted data would be wiped before it can be shown in the form.
   const pendingExtractRef = useRef(null);
+  const formTopRef = useRef(null);
+
+  const scrollToFormTop = () => {
+    setTimeout(() => {
+      if (formTopRef.current) {
+        formTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 60);
+  };
 
   useEffect(() => {
-    // Always fetch all interactions so history list always shows all logged items.
     dispatch(fetchInteractions(null));
     if (pendingExtractRef.current) {
-      // Apply the AI-extracted data that was queued just before the hcp changed.
       const { extractedForm, extractedKeys } = pendingExtractRef.current;
       pendingExtractRef.current = null;
       setForm(extractedForm);
       setAiExtractedFields(extractedKeys || []);
       setEditingId(null);
       setMode("form");
+      scrollToFormTop();
     } else {
       setForm(getInitialFormState());
       setAiExtractedFields([]);
@@ -87,6 +94,7 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
     });
     setAiExtractedFields([]);
     setMode("form");
+    scrollToFormTop();
   };
 
   const handleView = (item) => {
@@ -95,18 +103,18 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
 
   return (
     <div>
-      <div style={styles.titleRow}>
+      <div className="title-row">
         <div>
-          <h1 style={styles.title}>Log Interaction</h1>
-          <p style={styles.subtitle}>
+          <h1 className="screen-title">Log Interaction</h1>
+          <p className="screen-subtitle">
             Record today's engagement with {hcp ? <strong>{hcp.name}</strong> : "a Healthcare Professional"} using a
             quick structured form, or just describe it conversationally —
             our AI agent will structure it for you.
           </p>
         </div>
-        <div style={styles.toggle}>
+        <div className="mode-toggle">
           <button
-            style={mode === "chat" ? styles.toggleBtnActive : styles.toggleBtn}
+            className={mode === "chat" ? "toggle-btn-active" : "toggle-btn"}
             onClick={() => {
               setMode("chat");
               setEditingId(null);
@@ -115,11 +123,11 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
             💬 Conversational
           </button>
           <button
-            style={mode === "form" ? styles.toggleBtnActive : styles.toggleBtn}
+            className={mode === "form" ? "toggle-btn-active" : "toggle-btn"}
             onClick={() => {
               setMode("form");
               setEditingId(null);
-              // Do not wipe form so what is filled or converted is kept
+              scrollToFormTop();
             }}
           >
             📋 Structured Form
@@ -127,32 +135,21 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
         </div>
       </div>
 
-      <div style={styles.grid}>
-        <div style={styles.leftCol}>
+      <div className="log-screen-grid">
+        <div className="grid-col-primary" ref={formTopRef}>
           {mode === "chat" ? (
             <ChatInterface
               hcp={hcp}
               interactionId={editingId}
               onHcpExtracted={(newHcpId) => {
-                // onHcpSelected will change the `hcp` prop and re-trigger the
-                // useEffect. The pendingExtractRef is already set at this point
-                // (onExtract fires first inside ChatInterface), so the useEffect
-                // will apply the AI data instead of resetting to defaults.
                 onHcpSelected(newHcpId);
               }}
               onExtract={(extracted, extractedKeys) => {
-                // Set the form immediately for the case where no HCP change
-                // will happen (the HCP was already selected or stays null).
-                // Also store in the ref so the useEffect can apply it if an
-                // HCP change fires and re-runs the effect before we clear.
                 pendingExtractRef.current = { extractedForm: extracted, extractedKeys };
                 setForm(extracted);
                 setAiExtractedFields(extractedKeys || []);
                 setEditingId(null);
                 setMode("form");
-                // Auto-clear the ref after a short window in case onHcpExtracted
-                // never fires (i.e., no new HCP was identified). This prevents
-                // stale data from being applied on the next manual HCP change.
                 setTimeout(() => {
                   pendingExtractRef.current = null;
                 }, 500);
@@ -169,17 +166,17 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
             />
           )}
         </div>
-        <div style={styles.rightCol}>
+        <div className="grid-col-secondary">
           <InteractionList items={items} hcp={hcp} onEdit={handleEdit} onView={handleView} />
         </div>
       </div>
 
       {viewingItem && (
-        <div style={styles.modalOverlay} onClick={() => setViewingItem(null)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalOverlay} className="modal-overlay" onClick={() => setViewingItem(null)}>
+          <div style={styles.modalContent} className="modal-content-box" onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={styles.modalTitle}>Interaction Details</h2>
-              <button style={styles.modalCloseX} onClick={() => setViewingItem(null)}>&times;</button>
+              <button style={styles.modalCloseX} onClick={() => setViewingItem(null)} aria-label="Close dialog">&times;</button>
             </div>
             <div style={styles.modalBody}>
               {[
@@ -196,10 +193,10 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
                 { label: "Date", value: viewingItem.date ? new Date(viewingItem.date).toLocaleDateString() : "—" },
                 { label: "Time", value: viewingItem.interaction_time || "—" },
               ].map((f, idx) => (
-                <div key={idx} style={styles.modalField}>
-                  <div style={styles.modalLabel}>{f.label}</div>
-                  <div style={styles.modalSeparator}>:</div>
-                  <div style={styles.modalValue}>{f.value}</div>
+                <div key={idx} style={styles.modalField} className="modal-field-row">
+                  <div style={styles.modalLabel} className="modal-field-label">{f.label}</div>
+                  <div style={styles.modalSeparator} className="modal-field-sep">:</div>
+                  <div style={styles.modalValue} className="modal-field-value">{f.value}</div>
                 </div>
               ))}
             </div>
@@ -214,58 +211,15 @@ export default function LogInteractionScreen({ hcp, onHcpSelected }) {
 }
 
 const styles = {
-  titleRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    flexWrap: "wrap",
-    gap: 16,
-    marginBottom: 24,
-  },
-  title: { fontSize: 24, fontWeight: 700, margin: 0 },
-  subtitle: { fontSize: 14, color: "var(--color-ink-muted)", maxWidth: 560, marginTop: 6 },
-  toggle: {
-    display: "flex",
-    gap: 4,
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius-md)",
-    padding: 4,
-  },
-  toggleBtn: {
-    border: "none",
-    background: "transparent",
-    padding: "8px 14px",
-    borderRadius: "var(--radius-sm)",
-    fontSize: 13.5,
-    fontWeight: 500,
-    color: "var(--color-ink-muted)",
-  },
-  toggleBtnActive: {
-    border: "none",
-    background: "var(--color-primary-tint)",
-    color: "var(--color-primary-dark)",
-    padding: "8px 14px",
-    borderRadius: "var(--radius-sm)",
-    fontSize: 13.5,
-    fontWeight: 600,
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "minmax(340px, 1fr) minmax(320px, 0.9fr)",
-    gap: 24,
-    alignItems: "start",
-  },
-  leftCol: {},
-  rightCol: {},
   modalOverlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    background: "rgba(20, 33, 43, 0.5)",
-    backdropFilter: "blur(4px)",
+    background: "rgba(15, 23, 42, 0.6)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -276,7 +230,7 @@ const styles = {
     background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
     borderRadius: "var(--radius-lg)",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)",
+    boxShadow: "var(--shadow-modal)",
     width: "100%",
     maxWidth: "580px",
     maxHeight: "85vh",
@@ -288,66 +242,72 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "16px 20px",
+    padding: "18px 22px",
     borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-surface-alt)",
   },
   modalTitle: {
     fontSize: "18px",
     fontWeight: "700",
     margin: 0,
     color: "var(--color-ink)",
+    letterSpacing: "-0.01em",
   },
   modalCloseX: {
     background: "transparent",
     border: "none",
-    fontSize: "24px",
+    fontSize: "26px",
     cursor: "pointer",
     color: "var(--color-ink-muted)",
     lineHeight: 1,
-    padding: 0,
+    padding: "4px 8px",
+    borderRadius: "var(--radius-sm)",
+    transition: "color 0.15s, background 0.15s",
   },
   modalBody: {
-    padding: "20px",
+    padding: "22px",
     overflowY: "auto",
     flex: 1,
   },
   modalField: {
     display: "flex",
-    marginBottom: "12px",
+    marginBottom: "14px",
     fontSize: "14px",
     lineHeight: "1.5",
   },
   modalLabel: {
     fontWeight: "600",
-    width: "160px",
+    width: "170px",
     color: "var(--color-ink-muted)",
     flexShrink: 0,
   },
   modalSeparator: {
     marginRight: "12px",
-    color: "var(--color-ink-muted)",
+    color: "var(--color-ink-subtle)",
     flexShrink: 0,
   },
   modalValue: {
     color: "var(--color-ink)",
     wordBreak: "break-word",
     whiteSpace: "pre-wrap",
+    fontWeight: "500",
   },
   modalFooter: {
-    padding: "14px 20px",
+    padding: "16px 22px",
     borderTop: "1px solid var(--color-border)",
     display: "flex",
     justifyContent: "flex-end",
+    background: "var(--color-surface-alt)",
   },
   modalCloseBtn: {
-    padding: "8px 16px",
+    padding: "9px 18px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-border)",
     background: "#fff",
-    fontSize: "13.5px",
+    fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
     color: "var(--color-ink)",
-    transition: "background 0.2s",
+    transition: "all 0.2s ease",
   },
 };

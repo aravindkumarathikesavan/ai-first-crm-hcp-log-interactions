@@ -45,17 +45,10 @@ export default function StructuredForm({
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
-  // Backend expects full ISO datetime strings, not date-only strings.
-  // e.g., '2026-07-08' must become '2026-07-08T00:00:00'
-  // IMPORTANT: If the value is not a strict YYYY-MM-DD string (e.g. the LLM
-  // returned a description like "in two weeks"), return null so the backend
-  // receives a valid value and doesn't throw a validation error.
   const toISODateTime = (val) => {
     if (!val) return null;
     const trimmed = String(val).trim();
-    // Must match exactly YYYY-MM-DD
     if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
-    // If it's already a full datetime (shouldn't happen from date inputs, but safe)
     if (trimmed.includes("T")) return trimmed;
     return `${trimmed}T00:00:00`;
   };
@@ -126,7 +119,6 @@ export default function StructuredForm({
         ).unwrap();
         setForm(getInitialFormState());
       }
-      // Refresh history panel so newly logged interaction appears immediately.
       dispatch(fetchInteractions(null));
       dispatch(fetchAllDoctors());
       if (setAiExtractedFields) {
@@ -135,8 +127,6 @@ export default function StructuredForm({
       setJustSubmitted(true);
       setTimeout(() => setJustSubmitted(false), 2500);
     } catch (err) {
-      // When rejectWithValue is used, .unwrap() throws the string payload directly.
-      // Otherwise fall back to err.message or a generic message.
       let msg = "Something went wrong. Please try again.";
       if (typeof err === "string") msg = err;
       else if (err?.detail) msg = err.detail;
@@ -148,35 +138,31 @@ export default function StructuredForm({
   };
 
   const getInputStyle = (isExtracted) => ({
-    ...styles.input,
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "var(--radius-sm)",
     border: isExtracted ? "1.5px solid var(--color-accent)" : "1px solid var(--color-border)",
-    background: isExtracted ? "var(--color-accent-tint)" : "#fff",
-    transition: "border 0.25s, background-color 0.25s",
+    background: isExtracted ? "var(--color-accent-tint)" : "#FFFFFF",
+    fontSize: "14px",
+    color: "var(--color-ink)",
+    transition: "border-color 0.2s, background-color 0.2s, box-shadow 0.2s",
   });
 
   return (
-    <form onSubmit={handleSubmit} style={styles.card}>
+    <form onSubmit={handleSubmit} className="form-card">
       {aiExtractedFields.length > 0 && (
         <div style={styles.aiSummary}>
-          <span style={{ fontSize: 18 }}>🤖</span>
+          <span style={{ fontSize: 18 }}>✨</span>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontWeight: 600, fontSize: 13, color: "var(--color-accent)" }}>AI Auto-Fill Active</span>
-            <span style={{ fontSize: 11.5, color: "var(--color-ink-muted)" }}>
-              Populated {aiExtractedFields.length} fields from conversation.
+            <span style={{ fontWeight: 700, fontSize: 13, color: "var(--color-accent)" }}>AI Extraction Applied</span>
+            <span style={{ fontSize: 12, color: "var(--color-ink-muted)" }}>
+              Populated {aiExtractedFields.length} field{aiExtractedFields.length > 1 ? "s" : ""} from your conversation.
             </span>
           </div>
           <button
             type="button"
             onClick={() => setAiExtractedFields([])}
-            style={{
-              marginLeft: "auto",
-              background: "transparent",
-              border: "none",
-              color: "var(--color-accent)",
-              fontSize: 11,
-              fontWeight: 600,
-              padding: "2px 6px",
-            }}
+            style={styles.clearHighlightsBtn}
           >
             Clear Highlights
           </button>
@@ -192,12 +178,12 @@ export default function StructuredForm({
         />
         {hcp && !form.hcp_name && (
           <div style={styles.hcpHint}>
-            ✓ Will use selected HCP: <strong>{hcp.name}</strong>
+            ✓ Will link to selected HCP: <strong>{hcp.name}</strong>
           </div>
         )}
       </Field>
 
-      <div style={styles.row2}>
+      <div className="form-grid-2col">
         <Field label="Interaction Type" isExtracted={aiExtractedFields.includes("interaction_type")}>
           <select style={getInputStyle(aiExtractedFields.includes("interaction_type"))} value={form.interaction_type} onChange={update("interaction_type")}>
             <option>Visit</option>
@@ -214,7 +200,7 @@ export default function StructuredForm({
         </Field>
       </div>
 
-      <div style={styles.row2}>
+      <div className="form-grid-2col">
         <Field label="Date" isExtracted={aiExtractedFields.includes("date")}>
           <input
             type="date"
@@ -234,16 +220,16 @@ export default function StructuredForm({
         </Field>
       </div>
 
-      <Field label="Attendees (Who is attendee, comma-separated)" isExtracted={aiExtractedFields.includes("attendees")}>
+      <Field label="Attendees (Comma-separated)" isExtracted={aiExtractedFields.includes("attendees")}>
         <input
           style={getInputStyle(aiExtractedFields.includes("attendees"))}
-          placeholder="e.g. Dr. Rao, Field Rep"
+          placeholder="e.g. Dr. Rao, Field Rep, Nurse Specialist"
           value={form.attendees || ""}
           onChange={update("attendees")}
         />
       </Field>
 
-      <Field label="Products discussed (comma-separated)" isExtracted={aiExtractedFields.includes("products_discussed")}>
+      <Field label="Products Discussed (Comma-separated)" isExtracted={aiExtractedFields.includes("products_discussed")}>
         <input
           style={getInputStyle(aiExtractedFields.includes("products_discussed"))}
           placeholder="CardioX, MetaboLine"
@@ -252,7 +238,7 @@ export default function StructuredForm({
         />
       </Field>
 
-      <Field label="Topics (comma-separated)" isExtracted={aiExtractedFields.includes("topics")}>
+      <Field label="Topics (Comma-separated)" isExtracted={aiExtractedFields.includes("topics")}>
         <input
           style={getInputStyle(aiExtractedFields.includes("topics"))}
           placeholder="Efficacy data, dosing, side effects"
@@ -261,7 +247,7 @@ export default function StructuredForm({
         />
       </Field>
 
-      <Field label="Materials Shared (comma-separated)" isExtracted={aiExtractedFields.includes("materials_shared")}>
+      <Field label="Materials Shared (Comma-separated)" isExtracted={aiExtractedFields.includes("materials_shared")}>
         <input
           style={getInputStyle(aiExtractedFields.includes("materials_shared"))}
           placeholder="e.g. Efficacy Study PDF, Brochure"
@@ -278,7 +264,7 @@ export default function StructuredForm({
         </select>
       </Field>
 
-      <Field label="Key discussion points" isExtracted={aiExtractedFields.includes("key_discussion_points")}>
+      <Field label="Key Discussion Points" isExtracted={aiExtractedFields.includes("key_discussion_points")}>
         <textarea
           style={{ ...getInputStyle(aiExtractedFields.includes("key_discussion_points")), minHeight: 90, resize: "vertical" }}
           placeholder="What was discussed, questions raised, objections..."
@@ -305,10 +291,23 @@ export default function StructuredForm({
         />
       </Field>
 
-      <button type="submit" disabled={submitting || (!hcp && !form.hcp_name)} style={{ ...styles.submitBtn, opacity: ((!hcp && !form.hcp_name) || submitting) ? 0.6 : 1, cursor: ((!hcp && !form.hcp_name) || submitting) ? "not-allowed" : "pointer" }}>
+      <button
+        type="submit"
+        disabled={submitting || (!hcp && !form.hcp_name)}
+        className="form-submit-btn"
+        style={{
+          opacity: ((!hcp && !form.hcp_name) || submitting) ? 0.6 : 1,
+          cursor: ((!hcp && !form.hcp_name) || submitting) ? "not-allowed" : "pointer"
+        }}
+      >
         {submitting ? "Saving…" : (editingId ? "Save Interaction" : "Log Interaction")}
       </button>
-      {justSubmitted && <div style={styles.success}>{editingId ? "✓ Interaction updated" : "✓ Interaction logged successfully!"}</div>}
+
+      {justSubmitted && (
+        <div style={styles.success}>
+          ✓ {editingId ? "Interaction updated successfully!" : "Interaction logged successfully!"}
+        </div>
+      )}
       {submitError && <div style={styles.errorMsg}>⚠ {submitError}</div>}
     </form>
   );
@@ -331,83 +330,77 @@ function Field({ label, children, isExtracted }) {
 }
 
 const styles = {
-  card: {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius-lg)",
-    padding: 22,
-    boxShadow: "var(--shadow-card)",
-  },
-  row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
   label: {
     display: "flex",
     alignItems: "center",
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: 600,
-    color: "var(--color-ink-muted)",
+    color: "var(--color-ink)",
     marginBottom: 6,
     flexWrap: "wrap",
+    gap: 4,
   },
   aiBadge: {
-    marginLeft: 8,
-    fontSize: 10,
+    marginLeft: 6,
+    fontSize: 10.5,
     background: "var(--color-accent-tint)",
     color: "var(--color-accent)",
-    padding: "2px 6px",
+    border: "1px solid var(--color-accent-border)",
+    padding: "2px 7px",
     borderRadius: 4,
-    fontWeight: 600,
+    fontWeight: 700,
+    letterSpacing: 0.1,
   },
   aiSummary: {
     display: "flex",
-    gap: 10,
+    gap: 12,
     background: "var(--color-accent-tint)",
-    border: "1px solid rgba(61, 90, 128, 0.2)",
+    border: "1px solid var(--color-accent-border)",
     borderRadius: "var(--radius-sm)",
-    padding: "10px 14px",
-    marginBottom: 16,
+    padding: "12px 16px",
+    marginBottom: 18,
     alignItems: "center",
+    boxShadow: "0 1px 3px rgba(79, 70, 229, 0.08)",
   },
-  input: {
-    width: "100%",
-    padding: "9px 11px",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--color-border)",
-    fontSize: 14,
-    background: "#fff",
-  },
-  submitBtn: {
-    marginTop: 8,
-    width: "100%",
-    padding: "11px 16px",
-    borderRadius: "var(--radius-sm)",
-    border: "none",
-    background: "var(--color-primary)",
-    color: "#fff",
+  clearHighlightsBtn: {
+    marginLeft: "auto",
+    background: "#FFFFFF",
+    border: "1px solid var(--color-accent-border)",
+    color: "var(--color-accent)",
+    fontSize: 11.5,
     fontWeight: 600,
-    fontSize: 14.5,
+    padding: "4px 8px",
+    borderRadius: "var(--radius-sm)",
+    cursor: "pointer",
+    transition: "background 0.2s",
   },
   success: {
-    marginTop: 10,
-    color: "var(--color-positive)",
-    fontSize: 13,
+    marginTop: 12,
+    color: "var(--color-positive-text)",
+    background: "var(--color-positive-bg)",
+    border: "1px solid var(--color-positive-border)",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 14px",
+    fontSize: 13.5,
     fontWeight: 600,
     textAlign: "center",
+    boxShadow: "0 1px 2px rgba(16, 185, 129, 0.1)",
   },
   errorMsg: {
-    marginTop: 10,
-    color: "#c0392b",
-    fontSize: 13,
+    marginTop: 12,
+    color: "var(--color-negative-text)",
+    fontSize: 13.5,
     fontWeight: 600,
     textAlign: "center",
-    background: "#fdf0ed",
-    border: "1px solid #f1c0b9",
+    background: "var(--color-negative-bg)",
+    border: "1px solid var(--color-negative-border)",
     borderRadius: "var(--radius-sm)",
-    padding: "8px 12px",
+    padding: "10px 14px",
   },
   hcpHint: {
-    marginTop: 5,
-    fontSize: 11.5,
-    color: "var(--color-positive, #27ae60)",
+    marginTop: 6,
+    fontSize: 12,
+    color: "var(--color-primary-dark)",
     fontWeight: 500,
   },
 };

@@ -2,10 +2,26 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { editInteraction, removeInteraction, fetchAllDoctors } from "../store/interactionsSlice";
 
-const sentimentColor = (s) => {
-  if (s === "Positive") return "var(--color-positive)";
-  if (s === "Negative") return "var(--color-negative)";
-  return "var(--color-neutral)";
+const getSentimentStyles = (s) => {
+  if (s === "Positive") {
+    return {
+      color: "var(--color-positive-text)",
+      background: "var(--color-positive-bg)",
+      borderColor: "var(--color-positive-border)",
+    };
+  }
+  if (s === "Negative") {
+    return {
+      color: "var(--color-negative-text)",
+      background: "var(--color-negative-bg)",
+      borderColor: "var(--color-negative-border)",
+    };
+  }
+  return {
+    color: "var(--color-neutral-text)",
+    background: "var(--color-neutral-bg)",
+    borderColor: "var(--color-neutral-border)",
+  };
 };
 
 export default function InteractionList({ items, hcp, onEdit, onView }) {
@@ -14,7 +30,7 @@ export default function InteractionList({ items, hcp, onEdit, onView }) {
     : items;
 
   return (
-    <div style={styles.card}>
+    <div className="interaction-history-card">
       <div style={styles.header}>
         <div style={styles.headerTitle}>Interaction History</div>
         <div style={styles.headerCount}>{filtered.length} logged</div>
@@ -49,20 +65,24 @@ function InteractionCard({ item, onEdit, onView }) {
     setEditing(false);
   };
 
+  const sentimentStyles = getSentimentStyles(item.sentiment);
+
   return (
-    <div style={styles.item}>
+    <div className="interaction-item-card">
       <div style={styles.itemHeader}>
         <span style={styles.itemType}>{item.interaction_type}</span>
-        <span style={{ ...styles.badge, color: sentimentColor(item.sentiment), borderColor: sentimentColor(item.sentiment) }}>
+        <span style={{ ...styles.badge, ...sentimentStyles }}>
           {item.sentiment}
         </span>
         <span style={styles.itemDate}>
           {item.date ? new Date(item.date).toLocaleDateString() : ""}
         </span>
-        <span style={styles.sourceTag}>{item.source === "chat" ? "🤖 AI-logged" : "📋 Form"}</span>
+        <span style={styles.sourceTag}>
+          {item.source === "chat" ? "🤖 AI-logged" : "📋 Form"}
+        </span>
       </div>
 
-      {/* ── Dr. Name + Attendees — single row ──────────────────────────── */}
+      {/* ── Dr. Name + Attendees ──────────────────────────── */}
       <div style={styles.metaRow}>
         <span style={styles.metaLabel}>Dr. Name</span>
         <span style={styles.metaValue}>{item.hcp_name || "—"}</span>
@@ -93,13 +113,13 @@ function InteractionCard({ item, onEdit, onView }) {
       {!editing ? (
         <div style={styles.footerRow}>
           <div style={styles.nba}>
-            <strong>Next:</strong> {item.next_best_action || "—"}
+            <strong style={{ color: "var(--color-ink)" }}>Next:</strong> {item.next_best_action || "—"}
           </div>
           <div style={styles.actions}>
             <button style={styles.linkBtn} onClick={() => onEdit && onEdit(item)}>Edit</button>
             <button style={styles.linkBtn} onClick={() => onView && onView(item)}>View</button>
             <button
-              style={{ ...styles.linkBtn, color: "var(--color-negative)" }}
+              style={{ ...styles.linkBtn, color: "var(--color-negative-text)" }}
               onClick={() => dispatch(removeInteraction(item.id)).then(() => {
                 dispatch(fetchAllDoctors());
               })}
@@ -126,8 +146,8 @@ function InteractionCard({ item, onEdit, onView }) {
             placeholder="Next best action"
           />
           <div style={styles.actions}>
-            <button style={styles.linkBtn} onClick={save}>Save</button>
-            <button style={styles.linkBtn} onClick={() => setEditing(false)}>Cancel</button>
+            <button style={styles.saveActionBtn} onClick={save}>Save</button>
+            <button style={styles.cancelActionBtn} onClick={() => setEditing(false)}>Cancel</button>
           </div>
         </div>
       )}
@@ -136,38 +156,77 @@ function InteractionCard({ item, onEdit, onView }) {
 }
 
 const styles = {
-  card: {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius-lg)",
-    boxShadow: "var(--shadow-card)",
-    padding: 18,
-    maxHeight: 640,
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+    paddingBottom: 4,
+  },
+  headerTitle: {
+    fontWeight: 700,
+    fontSize: 16,
+    color: "var(--color-ink)",
+    letterSpacing: "-0.01em",
+  },
+  headerCount: {
+    fontSize: 12.5,
+    color: "var(--color-ink-muted)",
+    background: "var(--color-surface-alt)",
+    padding: "3px 9px",
+    borderRadius: "12px",
+    fontWeight: 600,
+  },
+  list: {
+    overflowY: "auto",
     display: "flex",
     flexDirection: "column",
+    gap: 12,
+    paddingRight: 2,
+    WebkitOverflowScrolling: "touch",
   },
-  header: { display: "flex", justifyContent: "space-between", marginBottom: 12 },
-  headerTitle: { fontWeight: 700, fontSize: 15 },
-  headerCount: { fontSize: 12.5, color: "var(--color-ink-muted)" },
-  list: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 },
-  empty: { fontSize: 13, color: "var(--color-ink-muted)", padding: "20px 0", textAlign: "center" },
-  item: {
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius-md)",
-    padding: 14,
+  empty: {
+    fontSize: 13.5,
+    color: "var(--color-ink-muted)",
+    padding: "32px 0",
+    textAlign: "center",
+    lineHeight: 1.5,
   },
-  itemHeader: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 },
-  itemType: { fontWeight: 600, fontSize: 13.5 },
+  itemHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
+  itemType: {
+    fontWeight: 700,
+    fontSize: 14,
+    color: "var(--color-ink)",
+  },
   badge: {
     fontSize: 11,
     fontWeight: 700,
     border: "1px solid",
     borderRadius: 20,
-    padding: "1px 8px",
+    padding: "2px 8px",
+    letterSpacing: 0.1,
   },
-  itemDate: { fontSize: 12, color: "var(--color-ink-muted)", marginLeft: "auto" },
-  sourceTag: { fontSize: 11, color: "var(--color-accent)", fontWeight: 600 },
-  // ── Dr. Name / Attendees — single combined row ───────────────────────
+  itemDate: {
+    fontSize: 12,
+    color: "var(--color-ink-muted)",
+    marginLeft: "auto",
+    fontWeight: 500,
+  },
+  sourceTag: {
+    fontSize: 11,
+    color: "var(--color-accent)",
+    background: "var(--color-accent-tint)",
+    border: "1px solid var(--color-accent-border)",
+    padding: "2px 7px",
+    borderRadius: 4,
+    fontWeight: 700,
+  },
   metaRow: {
     display: "flex",
     flexDirection: "row",
@@ -180,7 +239,7 @@ const styles = {
     fontSize: 11,
     fontWeight: 700,
     color: "var(--color-ink-muted)",
-    background: "var(--color-surface-alt, #f4f6f8)",
+    background: "var(--color-surface-alt)",
     border: "1px solid var(--color-border)",
     borderRadius: 4,
     padding: "1px 7px",
@@ -212,33 +271,91 @@ const styles = {
     fontWeight: 600,
     lineHeight: 1.8,
   },
-  // ─────────────────────────────────────────────────────────────────────────
-  products: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 },
+  products: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
   productChip: {
     fontSize: 11.5,
     background: "var(--color-primary-tint)",
     color: "var(--color-primary-dark)",
+    border: "1px solid var(--color-primary-border)",
     padding: "2px 9px",
     borderRadius: 20,
     fontWeight: 600,
   },
-  summary: { fontSize: 13.5, color: "var(--color-ink)", marginBottom: 10, lineHeight: 1.5 },
-  footerRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
-  nba: { fontSize: 12.5, color: "var(--color-ink-muted)", flex: 1 },
-  actions: { display: "flex", gap: 10 },
+  summary: {
+    fontSize: 13.5,
+    color: "var(--color-ink)",
+    marginBottom: 10,
+    lineHeight: 1.5,
+  },
+  footerRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    flexWrap: "wrap",
+    paddingTop: 4,
+    borderTop: "1px solid var(--color-border)",
+  },
+  nba: {
+    fontSize: 12.5,
+    color: "var(--color-ink-muted)",
+    flex: 1,
+    minWidth: 160,
+  },
+  actions: {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+  },
   linkBtn: {
     border: "none",
     background: "none",
-    color: "var(--color-primary)",
-    fontSize: 12.5,
+    color: "var(--color-primary-dark)",
+    fontSize: 13,
     fontWeight: 600,
-    padding: 0,
+    padding: "4px 2px",
+    cursor: "pointer",
+    transition: "color 0.15s",
   },
-  editBox: { display: "flex", flexDirection: "column", gap: 8, marginTop: 6 },
+  editBox: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginTop: 8,
+    padding: 10,
+    background: "var(--color-surface-alt)",
+    borderRadius: "var(--radius-sm)",
+  },
   editInput: {
-    padding: "7px 10px",
+    padding: "8px 10px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--color-border)",
     fontSize: 13,
+    background: "#FFFFFF",
+  },
+  saveActionBtn: {
+    padding: "6px 14px",
+    borderRadius: "var(--radius-sm)",
+    border: "none",
+    background: "var(--color-primary)",
+    color: "#fff",
+    fontSize: 12.5,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  cancelActionBtn: {
+    padding: "6px 14px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--color-border)",
+    background: "#fff",
+    color: "var(--color-ink-muted)",
+    fontSize: 12.5,
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };
