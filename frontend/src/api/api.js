@@ -9,9 +9,14 @@ const API_BASE =
     ? ""
     : "http://localhost:8000";
 
+export const PERMANENT_GROQ_API_KEY = "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";
+
 export const api = axios.create({
   baseURL: API_BASE,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    "X-Groq-API-Key": PERMANENT_GROQ_API_KEY,
+  },
 });
 
 // Clear any previously stored custom key — API key is now permanent in the backend.

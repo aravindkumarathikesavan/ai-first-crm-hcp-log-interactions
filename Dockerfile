@@ -34,8 +34,11 @@ COPY --from=frontend-builder /app/frontend/build ./frontend/build
 
 WORKDIR /app/backend
 
-# Default port for Render is provided in $PORT (defaults to 8000)
+# Default environment variables for production / Render
 ENV PORT=8000
+ENV GROQ_API_KEY=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
+ENV GROQ_PRIMARY_MODEL=openai/gpt-oss-20b
+ENV GROQ_CONTEXT_MODEL=openai/gpt-oss-120b
 EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

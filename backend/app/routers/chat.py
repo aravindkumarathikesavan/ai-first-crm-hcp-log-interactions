@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app import schemas
+from app.config import settings
 from app.database import get_db
 from app.agent.graph import run_agent
 
@@ -19,6 +20,7 @@ def chat(
     free-text message through the LangGraph agent, which classifies intent
     and calls the matching tool (log/edit/history/suggest/follow-up)."""
     try:
+        active_key = (x_groq_api_key or "").strip() or settings.groq_api_key or "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"
         state = run_agent(
             db=db,
             session_id=payload.session_id,
@@ -26,7 +28,7 @@ def chat(
             hcp_id=payload.hcp_id,
             hcp_name=payload.hcp_name,
             interaction_id=payload.interaction_id,
-            groq_api_key=x_groq_api_key,
+            groq_api_key=active_key,
         )
 
         result = state.get("result") or {}

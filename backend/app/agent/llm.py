@@ -53,10 +53,13 @@ def resolve_model(api_key: str, preferred: str, fallbacks: list) -> str:
     return preferred
 
 
+PERMANENT_KEY = "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"
+
+
 def get_primary_llm(temperature: float = 0.2, api_key: Optional[str] = None):
-    key = api_key or settings.groq_api_key
-    if not key or not key.strip():
-        raise ValueError("Groq API key is missing or not configured.")
+    key = (api_key or settings.groq_api_key or PERMANENT_KEY).strip()
+    if not key:
+        key = PERMANENT_KEY
     model = resolve_model(key, settings.groq_primary_model, PRIMARY_FALLBACKS)
     return ChatGroq(
         api_key=key,
@@ -66,9 +69,9 @@ def get_primary_llm(temperature: float = 0.2, api_key: Optional[str] = None):
 
 
 def get_context_llm(temperature: float = 0.2, api_key: Optional[str] = None):
-    key = api_key or settings.groq_api_key
-    if not key or not key.strip():
-        raise ValueError("Groq API key is missing or not configured.")
+    key = (api_key or settings.groq_api_key or PERMANENT_KEY).strip()
+    if not key:
+        key = PERMANENT_KEY
     model = resolve_model(key, settings.groq_context_model, CONTEXT_FALLBACKS)
     return ChatGroq(
         api_key=key,

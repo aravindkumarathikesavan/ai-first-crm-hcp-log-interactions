@@ -6,11 +6,11 @@ services:
     region: ohio
     envVars:
       - key: GROQ_API_KEY
-        sync: false
+        value: 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
       - key: GROQ_PRIMARY_MODEL
-        value: llama-3.1-8b-instant
+        value: openai/gpt-oss-20b
       - key: GROQ_CONTEXT_MODEL
-        value: llama-3.3-70b-versatile
+        value: openai/gpt-oss-120b
       - key: DATABASE_URL
         sync: false
       - key: APP_ENV
