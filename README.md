@@ -140,6 +140,35 @@ Tables are auto-created on backend startup via `Base.metadata.create_all`.
 
 ---
 
+## 🚀 Live Deployment on Render (100% Free Lifetime)
+
+### Why docs opened instead of the app:
+FastAPI alone only serves API endpoints (`/api/...`) and Swagger docs (`/docs`). To make the full interactive React website open on your live URL, FastAPI is now configured to automatically serve the React frontend build at `/` and all client routes.
+
+### Option 1: Single Unified Web Service (Recommended — 1 URL for everything)
+Deploy both the React frontend and FastAPI backend into **1 single free service**:
+1. On **Render Dashboard** (https://dashboard.render.com), click **New +** -> **Web Service**.
+2. Connect your GitHub repository: `ai-first-crm-hcp-log-interactions`.
+3. Configure settings:
+   - **Language / Runtime**: `Docker` (Render automatically uses the included multi-stage `Dockerfile`)
+   - **Instance Type**: `Free`
+4. Add **Environment Variables**:
+   - `DATABASE_URL`: Your Neon connection string (e.g., `postgresql://neondb_owner:npg_...`)
+   - `GROQ_API_KEY`: Your Groq API key (`gsk_...`)
+   - `GROQ_PRIMARY_MODEL`: `llama-3.1-8b-instant`
+   - `GROQ_CONTEXT_MODEL`: `llama-3.3-70b-versatile`
+   - `APP_ENV`: `production`
+5. Click **Create Web Service**.
+6. When deployment finishes, opening your Render URL (`https://your-service.onrender.com`) will display the full CRM website with doctor cards, structured form, and AI chat! `/docs` remains available for API documentation.
+
+### Option 2: Render Native Python Service (Using `build.sh`)
+If you prefer native Python instead of Docker:
+- **Build Command**: `./build.sh`
+- **Start Command**: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Root Directory**: (leave empty / repository root)
+
+---
+
 ## Notes on the assignment
 
 - This is a conceptual/technical assignment submission. The code is a

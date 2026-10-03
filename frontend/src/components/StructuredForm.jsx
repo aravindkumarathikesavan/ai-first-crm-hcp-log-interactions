@@ -30,8 +30,6 @@ const getInitialFormState = () => {
   };
 };
 
-const EMPTY = getInitialFormState();
-
 export default function StructuredForm({
   hcp,
   form,

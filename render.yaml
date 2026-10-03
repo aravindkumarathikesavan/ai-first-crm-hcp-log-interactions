@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ai-first-crm-hcp
+    runtime: docker
+    plan: free
+    region: ohio
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_PRIMARY_MODEL
+        value: llama-3.1-8b-instant
+      - key: GROQ_CONTEXT_MODEL
+        value: llama-3.3-70b-versatile
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_ENV
+        value: production

@@ -1,6 +1,13 @@
 import axios from "axios";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
+// In production, default to relative URL ("") so it works on any domain/Render deployment.
+// In development, default to "http://localhost:8000".
+const API_BASE =
+  process.env.REACT_APP_API_BASE !== undefined
+    ? process.env.REACT_APP_API_BASE
+    : process.env.NODE_ENV === "production"
+    ? ""
+    : "http://localhost:8000";
 
 export const api = axios.create({
   baseURL: API_BASE,
